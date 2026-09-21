@@ -56,6 +56,28 @@ resource "aws_iam_role" "github_actions_runner" {
 
 # 4. Define Permissions Policy for S3 Backend, DynamoDB, KMS, and Cross-Account Assumption
 data "aws_iam_policy_document" "github_actions_permissions" {
+  statement {
+    sid    = "OrganizationsManagement"
+    effect = "Allow"
+    actions = [
+      "organizations:AttachPolicy",
+      "organizations:CreatePolicy",
+      "organizations:DescribeOrganization",
+      "organizations:DescribeOrganizationalUnit",
+      "organizations:DescribePolicy",
+      "organizations:DescribeAccount",
+      "organizations:EnablePolicyType",
+      "organizations:ListAccounts",
+      "organizations:ListChildren",
+      "organizations:ListParents",
+      "organizations:ListPoliciesForTarget",
+      "organizations:ListRoots",
+      "organizations:ListTargetsForPolicy",
+      "organizations:UpdatePolicy"
+    ]
+    resources = ["*"]
+  }
+
   # Bucket-level permissions (fixes 403 Forbidden errors)
   statement {
     sid    = "S3StateBucketPermissions"
