@@ -15,7 +15,7 @@ permissions:
 
 env:
   AWS_REGION: "us-east-1"
-  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }} # Or use "arn:aws:iam::123456789012:role/github-actions-terraform-runner"
+  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
   STATE_BUCKET: "org-tfstate-landing-zone-management"
   STATE_KEY: "landing-zone/terraform.tfstate"
 
@@ -32,6 +32,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.6.0"
+          terraform_wrapper: false # Fixes deprecated set-output wrapper issues
 
       # Authenticate to AWS via OIDC Role Assumption
       - name: Configure AWS Credentials from Management Role
@@ -41,7 +42,6 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActionsTerraformSession
 
-      # Replaced standard init with secret-backed dynamic initialization
       - name: Terraform Init
         env:
           KMS_KEY_ARN: ${{ secrets.KMS_KEY_ARN }}
@@ -51,15 +51,17 @@ jobs:
             -backend-config="key=${STATE_KEY}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="encrypt=true" \
-            -backend-config="use_lockfile=true" \
             -backend-config="kms_key_id=${KMS_KEY_ARN}"
 
       - name: Terraform Format Check
         run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
 
       - name: Terraform Plan
         run: terraform plan -no-color
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -no-color
