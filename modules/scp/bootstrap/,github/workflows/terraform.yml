@@ -15,6 +15,7 @@ permissions:
 
 env:
   AWS_REGION: "us-east-1"
+  AWS_ROLE_TO_ASSUME_ARN: "arn:aws:iam::277869548641:role/github-actions-terraform-runner-landing-zone"
   ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
   STATE_BUCKET: "org-tfstate-landing-zone-management"
   STATE_KEY: "landing-zone/terraform.tfstate"
@@ -38,9 +39,12 @@ jobs:
       - name: Configure AWS Credentials from Management Role
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          role-to-assume: ${{ env.ROLE_TO_ASSUME || env.AWS_ROLE_TO_ASSUME_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActionsTerraformSession
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
 
       - name: Terraform Init
         env:

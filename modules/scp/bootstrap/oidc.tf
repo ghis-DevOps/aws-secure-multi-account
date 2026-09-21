@@ -1,13 +1,13 @@
 variable "github_org" {
   type        = string
   description = "Your GitHub Organization or Username"
-  default     = "your-github-org" # Replace with your actual GitHub Org/User
+  default     = "ghis-DevOps"
 }
 
 variable "github_repo" {
   type        = string
   description = "Your GitHub Repository Name"
-  default     = "aws-landing-zone" # Replace with your actual repo name
+  default     = "aws-landing-zone"
 }
 
 # 1. Register GitHub as an OpenID Connect (OIDC) Identity Provider
@@ -34,11 +34,14 @@ data "aws_iam_policy_document" "github_oidc_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Restrict execution strictly to your specific repository and main branch
+    # Allow the main branch and pull requests from this repository.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"]
+      values = [
+        "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_org}/${var.github_repo}:pull_request"
+      ]
     }
   }
 }
