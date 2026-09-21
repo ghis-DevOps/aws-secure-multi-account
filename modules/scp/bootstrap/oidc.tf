@@ -1,13 +1,23 @@
-# 1. Register GitHub as an OpenID Connect (OIDC) Provider
+variable "github_org" {
+  type        = string
+  description = "Your GitHub Organization or Username"
+  default     = "your-github-org" # Replace with your actual GitHub Org/User
+}
+
+variable "github_repo" {
+  type        = string
+  description = "Your GitHub Repository Name"
+  default     = "aws-landing-zone" # Replace with your actual repo name
+}
+
+# 1. Register GitHub as an OpenID Connect (OIDC) Identity Provider
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
-
-  # Thumbprint for GitHub Actions OIDC provider
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# 2. Define Trust Policy allowing specific GitHub Repository & Branches
+# 2. Define OIDC Trust Policy
 data "aws_iam_policy_document" "github_oidc_trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -24,74 +34,99 @@ data "aws_iam_policy_document" "github_oidc_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Restrict execution strictly to your repository and main branch
+    # Restrict execution strictly to your specific repository and main branch
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:your-github-org/aws-landing-zone:ref:refs/heads/main"]
+      values   = ["repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"]
     }
   }
 }
 
 # 3. Create the IAM Role for GitHub Actions
-resource "aws_iam_role" "github_actions_tf_runner" {
-  name               = "github-actions-terraform-runner"
+resource "aws_iam_role" "github_actions_runner" {
+  name               = "github-actions-terraform-runner-${var.environment}"
   assume_role_policy = data.aws_iam_policy_document.github_oidc_trust.json
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
 
-# 4. Attach Policies Required for S3 State & Multi-Account Role Assumptions
+# 4. Define Permissions Policy for S3 Backend, DynamoDB, KMS, and Cross-Account Assumption
 data "aws_iam_policy_document" "github_actions_permissions" {
-  # Permission to read/write Terraform state in S3 and lock in DynamoDB
+  # Bucket-level permissions (fixes 403 Forbidden errors)
   statement {
-    sid    = "TerraformStateBackendAccess"
+    sid    = "S3StateBucketPermissions"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation"
+    ]
+    resources = [aws_s3_bucket.terraform_state.arn]
+  }
+
+  # Object-level permissions
+  statement {
+    sid    = "S3StateObjectPermissions"
     effect = "Allow"
     actions = [
       "s3:GetObject",
       "s3:PutObject",
-      "s3:ListBucket",
+      "s3:DeleteObject"
+    ]
+    resources = ["${aws_s3_bucket.terraform_state.arn}/*"]
+  }
+
+  # DynamoDB Lock Table access
+  statement {
+    sid    = "DynamoDBLockPermissions"
+    effect = "Allow"
+    actions = [
       "dynamodb:GetItem",
       "dynamodb:PutItem",
       "dynamodb:DeleteItem"
     ]
-    resource = [
-      "arn:aws:s3:::org-tfstate-landing-zone-management",
-      "arn:aws:s3:::org-tfstate-landing-zone-management/*",
-      "arn:aws:dynamodb:us-east-1:*:table/org-tfstate-locks-landing-zone"
-    ]
+    resources = [aws_dynamodb_table.terraform_locks.arn]
   }
 
-  # Permission to decrypt state file using KMS
+  # KMS Key access for state decryption/encryption
   statement {
     sid    = "KMSKeyAccess"
     effect = "Allow"
     actions = [
       "kms:Decrypt",
-      "kms:GenerateDataKey"
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+      "kms:DescribeKey"
     ]
-    resource = "*"
+    resources = [aws_kms_key.terraform_state_key.arn]
   }
 
-  # Permission to assume cross-account roles in target child accounts
+  # Cross-account role assumption for child account deployments
   statement {
-    sid      = "AssumeCrossAccountRoles"
-    effect   = "Allow"
-    actions  = ["sts:AssumeRole"]
-    resource = "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    sid       = "AssumeCrossAccountRoles"
+    effect    = "Allow"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::*:role/OrganizationAccountAccessRole"]
   }
 }
 
+# 5. Create and Attach Policy
 resource "aws_iam_policy" "github_actions_policy" {
-  name        = "github-actions-terraform-policy"
-  description = "Permissions for GitHub Actions to run multi-account Terraform"
+  name        = "github-actions-terraform-policy-${var.environment}"
+  description = "Permissions for GitHub Actions to manage state and deploy landing zone"
   policy      = data.aws_iam_policy_document.github_actions_permissions.json
 }
 
-resource "aws_iam_role_policy_attachment" "attach_policy" {
-  role       = aws_iam_role.github_actions_tf_runner.name
+resource "aws_iam_role_policy_attachment" "github_actions_attach" {
+  role       = aws_iam_role.github_actions_runner.name
   policy_arn = aws_iam_policy.github_actions_policy.arn
 }
 
+# 6. Outputs
 output "github_actions_role_arn" {
-  value       = aws_iam_role.github_actions_tf_runner.arn
-  description = "ARN of the IAM Role to use in GitHub Actions workflow"
+  value       = aws_iam_role.github_actions_runner.arn
+  description = "ARN of the IAM Role to configure in your GitHub Actions workflow"
 }

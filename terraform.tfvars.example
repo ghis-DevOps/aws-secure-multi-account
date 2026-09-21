@@ -1,0 +1,12 @@
+aws_region      = "us-east-1"
+allowed_regions = ["us-east-1", "us-west-2"]
+create_member_accounts = false
+
+# Use unique, accessible email addresses or supported aliases.
+# Do not commit the real values. Copy this file to terraform.tfvars locally.
+root_email             = "management@example.com"
+log_archive_email      = "log-archive@example.com"
+security_tooling_email = "security-tooling@example.com"
+shared_services_email  = "shared-services@example.com"
+prod_workload_email    = "production@example.com"
+dev_workload_email     = "development@example.com"

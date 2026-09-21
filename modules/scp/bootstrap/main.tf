@@ -105,6 +105,7 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
+# Outputs
 output "s3_bucket_name" {
   value       = aws_s3_bucket.terraform_state.id
   description = "Name of the S3 state bucket"
@@ -118,4 +119,9 @@ output "dynamodb_table_name" {
 output "kms_key_arn" {
   value       = aws_kms_key.terraform_state_key.arn
   description = "ARN of the KMS Key used for state encryption"
+}
+
+output "iam_policy_arn" {
+  value       = aws_iam_policy.github_actions_policy.arn
+  description = "ARN of the IAM policy to attach to your GitHub Actions OIDC role"
 }

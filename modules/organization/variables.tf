@@ -1,6 +1,12 @@
 variable "root_email" {
   type        = string
+  sensitive   = true
   description = "Email address associated with the AWS Organizations management account"
+}
+
+variable "create_member_accounts" {
+  type        = bool
+  description = "Whether to create the four member accounts"
 }
 
 variable "security_ou_name" {
@@ -23,25 +29,30 @@ variable "workloads_ou_name" {
 
 variable "log_archive_email" {
   type        = string
+  sensitive   = true
   description = "Email address for the Log Archive account"
 }
 
 variable "security_tooling_email" {
   type        = string
+  sensitive   = true
   description = "Email address for the Security Tooling account"
 }
 
 variable "shared_services_email" {
   type        = string
+  sensitive   = true
   description = "Email address for the Shared Services account"
 }
 
 variable "prod_workload_email" {
   type        = string
+  sensitive   = true
   description = "Email address for the App Production account"
 }
 
 variable "dev_workload_email" {
   type        = string
+  sensitive   = true
   description = "Email address for the App Development account"
 }

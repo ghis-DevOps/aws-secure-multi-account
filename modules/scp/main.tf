@@ -24,8 +24,8 @@ resource "aws_organizations_policy" "region_restriction" {
   content = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid      = "DenyUnapprovedRegions"
-      Effect   = "Deny"
+      Sid    = "DenyUnapprovedRegions"
+      Effect = "Deny"
       NotAction = [
         "iam:*",
         "organizations:*",
